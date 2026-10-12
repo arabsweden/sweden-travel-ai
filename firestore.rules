@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Catch-all Safety Net: Deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email == "Raedinsweden@gmail.com" && 
+             request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // ITINERARIES COLLECTION RULES
+    match /itineraries/{itineraryId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isVerifiedUser() && 
+                    isValidId(itineraryId) && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.itineraryDays is list &&
+                    request.resource.data.title is string &&
+                    request.resource.data.title.size() <= 100;
+
+      allow update: if isVerifiedUser() && 
+                    resource.data.userId == request.auth.uid && 
+                    request.resource.data.userId == resource.data.userId &&
+                    request.resource.data.itineraryDays is list &&
+                    request.resource.data.title is string &&
+                    request.resource.data.title.size() <= 100 &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'itineraryDays', 'estimatedCosts']);
+
+      allow delete: if isVerifiedUser() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // FAVORITES COLLECTION RULES
+    match /favorites/{favoriteId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+                    isValidId(favoriteId) &&
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.itemType is string &&
+                    request.resource.data.itemId is string;
+
+      allow delete: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+    }
+
+    // DESTINATIONS COLLECTION RULES
+    match /destinations/{destinationId} {
+      allow read: if true; // Publicly readable
+      allow create, update, delete: if isAdmin();
+    }
+
+    // HOTELS COLLECTION RULES
+    match /hotels/{hotelId} {
+      allow read: if true; // Publicly readable
+      allow create, update, delete: if isAdmin();
+    }
+
+    // RESTAURANTS COLLECTION RULES
+    match /restaurants/{restaurantId} {
+      allow read: if true; // Publicly readable
+      allow create, update, delete: if isAdmin();
+    }
+
+    // TRAVEL ARTICLES COLLECTION RULES
+    match /travel_articles/{articleId} {
+      allow read: if true; // Publicly readable
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ANALYTICS COLLECTION RULES
+    match /analytics/{analyticsId} {
+      allow get, list: if isAdmin();
+      allow create: if true; // Anyone can submit an analytics log
+    }
+
+    // CHECKLISTS COLLECTION RULES
+    match /checklists/{checklistId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isVerifiedUser() && 
+                    isValidId(checklistId) && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.items is list;
+
+      allow update: if isVerifiedUser() && 
+                    resource.data.userId == request.auth.uid && 
+                    request.resource.data.userId == resource.data.userId &&
+                    request.resource.data.items is list &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startDate', 'endDate', 'weatherContext', 'items', 'updatedAt']);
+
+      allow delete: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

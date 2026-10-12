@@ -1,0 +1,6 @@
+{
+  "name": "Sweden Travel AI",
+  "description": "Your intelligent travel assistant for discovering Sweden, planning trips, finding attractions, hotels, and restaurants.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
